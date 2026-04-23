@@ -4,12 +4,10 @@
 
 Launch `CS Live Mute` and leave it running while you play `CS2`.
 
-## 2. Install the Chromium extension
+## 2. Choose your mode
 
-1. Open `chrome://extensions`, `edge://extensions` or `brave://extensions`.
-2. Enable `Developer mode`.
-3. Choose `Load unpacked`.
-4. Select the repository's `extension` folder, or the packaged `extension` folder from a release zip.
+- Choose `Stream` if you normally watch Twitch, Kick or another live stream.
+- Choose `Video` if you normally watch YouTube VOD or another normal video.
 
 ## 3. Add the CS2 GSI config
 
@@ -21,14 +19,14 @@ If your Steam library is on the default Windows path, the folder is usually:
 
 `C:\Program Files (x86)\Steam\steamapps\common\Counter-Strike Global Offensive\game\csgo\cfg\`
 
-## 4. Verify the local bridge
+## 4. Verify the local controller
 
-- The app should show `Waiting for Chromium extension` until the extension connects.
-- Once the extension is loaded, the app should show the connected browser and supported tab count.
+- Start a browser video or stream before you test.
+- The app should show the detected browser media session in `Media Detected`.
 - When `CS2` sends a valid payload, `Game Status` changes to connected.
 
 ## 5. Usage rules
 
-- `Twitch`, `Kick` and `YouTube Live` are treated as live streams and muted during live rounds.
-- `YouTube` VOD playback is paused during live rounds.
-- Playback is restored only if the extension made the original change.
+- `Stream` mode mutes the current browser audio session during live rounds.
+- `Video` mode pauses the current browser media session during live rounds.
+- Audio or playback is restored only if the desktop app made the original change.

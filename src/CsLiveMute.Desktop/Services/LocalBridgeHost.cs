@@ -1,31 +1,20 @@
-using System.Collections.Concurrent;
 using System.IO;
 using System.Net;
-using System.Net.WebSockets;
-using System.Text;
-using System.Text.Json;
 using CsLiveMute.Core.Gsi;
 using CsLiveMute.Core.Models;
-using CsLiveMute.Core.Protocol;
 using CsLiveMute.Desktop.Models;
 
 namespace CsLiveMute.Desktop.Services;
 
 public sealed class LocalBridgeHost : IAsyncDisposable
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web)
-    {
-        PropertyNameCaseInsensitive = true
-    };
-
     private readonly HttpListener _listener = new();
-    private readonly ConcurrentDictionary<Guid, ConnectedSession> _sessions = new();
     private readonly CombatModeEngine _combatModeEngine = new();
+    private readonly DesktopMediaController _mediaController = new();
     private readonly object _sync = new();
 
     private CancellationTokenSource? _lifetime;
     private Task? _listenLoop;
-    private Task? _heartbeatLoop;
     private AppSettings _settings;
     private BridgeTelemetrySnapshot _snapshot = BridgeTelemetrySnapshot.Empty;
 
@@ -42,14 +31,15 @@ public sealed class LocalBridgeHost : IAsyncDisposable
         _listener.Start();
         _lifetime = new CancellationTokenSource();
         _listenLoop = Task.Run(() => ListenAsync(_lifetime.Token));
-        _heartbeatLoop = Task.Run(() => BroadcastHeartbeatLoopAsync(_lifetime.Token));
         await Task.Yield();
         EmitTelemetry();
+        _ = RefreshMediaSnapshotAsync();
     }
 
     public void UpdateSettings(AppSettings settings)
     {
         CombatModeTransition transition;
+        var previousSettings = _settings;
         lock (_sync)
         {
             _settings = settings;
@@ -62,9 +52,17 @@ public sealed class LocalBridgeHost : IAsyncDisposable
         }
 
         EmitTelemetry();
-        if (transition.Changed)
+        if (previousSettings.ControlMode != settings.ControlMode && _snapshot.CombatModeActive)
         {
-            _ = BroadcastAsync(new CombatModeChangedMessage(transition.IsActive, transition.RoundPhase, DateTimeOffset.UtcNow));
+            _ = SwitchControlModeAsync(previousSettings.ControlMode, settings.ControlMode);
+        }
+        else if (transition.Changed)
+        {
+            _ = ApplyCombatModeTransitionAsync(transition);
+        }
+        else
+        {
+            _ = RefreshMediaSnapshotAsync();
         }
     }
 
@@ -75,30 +73,11 @@ public sealed class LocalBridgeHost : IAsyncDisposable
             _lifetime.Cancel();
         }
 
-        foreach (var session in _sessions.Values)
-        {
-            try
-            {
-                if (session.Socket.State == WebSocketState.Open)
-                {
-                    await session.Socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Shutting down", CancellationToken.None);
-                }
-            }
-            catch
-            {
-            }
-        }
-
         _listener.Close();
 
         if (_listenLoop is not null)
         {
             await _listenLoop;
-        }
-
-        if (_heartbeatLoop is not null)
-        {
-            await _heartbeatLoop;
         }
     }
 
@@ -137,12 +116,6 @@ public sealed class LocalBridgeHost : IAsyncDisposable
         if (context.Request.HttpMethod == "POST" && path.Equals("/gsi", StringComparison.OrdinalIgnoreCase))
         {
             await HandleGsiAsync(context);
-            return;
-        }
-
-        if (path.Equals("/bridge", StringComparison.OrdinalIgnoreCase))
-        {
-            await HandleBridgeAsync(context, cancellationToken);
             return;
         }
 
@@ -204,166 +177,15 @@ public sealed class LocalBridgeHost : IAsyncDisposable
         EmitTelemetry();
         if (transition.Changed)
         {
-            await BroadcastAsync(new CombatModeChangedMessage(transition.IsActive, transition.RoundPhase, DateTimeOffset.UtcNow));
+            await ApplyCombatModeTransitionAsync(transition);
+        }
+        else
+        {
+            await RefreshMediaSnapshotAsync();
         }
 
         context.Response.StatusCode = (int)HttpStatusCode.OK;
         context.Response.Close();
-    }
-
-    private async Task HandleBridgeAsync(HttpListenerContext context, CancellationToken cancellationToken)
-    {
-        if (!context.Request.IsWebSocketRequest)
-        {
-            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
-            context.Response.Close();
-            return;
-        }
-
-        var socketContext = await context.AcceptWebSocketAsync(null);
-        var session = new ConnectedSession(Guid.NewGuid(), socketContext.WebSocket);
-        _sessions[session.Id] = session;
-        UpdateSnapshot(snapshot => snapshot with { ExtensionConnected = true, LastError = null });
-
-        await SendAsync(session.Socket, new HelloMessage("desktop", "cs-live-mute", typeof(LocalBridgeHost).Assembly.GetName().Version?.ToString(), _snapshot.CombatModeActive), cancellationToken);
-        await SendAsync(session.Socket, new CombatModeChangedMessage(_snapshot.CombatModeActive, _snapshot.LastRoundPhase, DateTimeOffset.UtcNow), cancellationToken);
-
-        try
-        {
-            await ReceiveLoopAsync(session, cancellationToken);
-        }
-        finally
-        {
-            _sessions.TryRemove(session.Id, out _);
-            UpdateSnapshot(snapshot => snapshot with
-            {
-                ExtensionConnected = !_sessions.IsEmpty,
-                Browser = !_sessions.IsEmpty ? snapshot.Browser : null,
-                ExtensionVersion = !_sessions.IsEmpty ? snapshot.ExtensionVersion : null,
-                ConnectedTabs = !_sessions.IsEmpty ? snapshot.ConnectedTabs : 0,
-                SupportedTabs = !_sessions.IsEmpty ? snapshot.SupportedTabs : 0
-            });
-        }
-    }
-
-    private async Task ReceiveLoopAsync(ConnectedSession session, CancellationToken cancellationToken)
-    {
-        var buffer = new byte[4096];
-
-        while (session.Socket.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
-        {
-            using var stream = new MemoryStream();
-            WebSocketReceiveResult result;
-            do
-            {
-                result = await session.Socket.ReceiveAsync(buffer, cancellationToken);
-                if (result.MessageType == WebSocketMessageType.Close)
-                {
-                    await session.Socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", cancellationToken);
-                    return;
-                }
-
-                stream.Write(buffer, 0, result.Count);
-            }
-            while (!result.EndOfMessage);
-
-            var message = Encoding.UTF8.GetString(stream.ToArray());
-            await HandleClientMessageAsync(session, message, cancellationToken);
-        }
-    }
-
-    private async Task HandleClientMessageAsync(ConnectedSession session, string message, CancellationToken cancellationToken)
-    {
-        using var document = JsonDocument.Parse(message);
-        if (!document.RootElement.TryGetProperty("type", out var typeElement))
-        {
-            return;
-        }
-
-        var type = typeElement.GetString();
-        switch (type)
-        {
-            case BridgeMessageTypes.Hello:
-            {
-                var hello = JsonSerializer.Deserialize<HelloMessage>(message, SerializerOptions);
-                if (hello is not null)
-                {
-                    session.Browser = hello.Browser;
-                    session.Version = hello.Version;
-                    UpdateSnapshot(snapshot => snapshot with
-                    {
-                        ExtensionConnected = true,
-                        Browser = hello.Browser,
-                        ExtensionVersion = hello.Version,
-                        LastError = null
-                    });
-                }
-
-                break;
-            }
-            case BridgeMessageTypes.Status:
-            {
-                var status = JsonSerializer.Deserialize<ExtensionStatusMessage>(message, SerializerOptions);
-                if (status is not null)
-                {
-                    session.Browser = status.Browser ?? session.Browser;
-                    session.Version = status.Version ?? session.Version;
-                    UpdateSnapshot(snapshot => snapshot with
-                    {
-                        ExtensionConnected = true,
-                        Browser = session.Browser,
-                        ExtensionVersion = session.Version,
-                        ConnectedTabs = status.ConnectedTabs,
-                        SupportedTabs = status.SupportedTabs,
-                        LastError = null
-                    });
-                }
-
-                break;
-            }
-            case BridgeMessageTypes.MediaSnapshot:
-            {
-                var snapshotMessage = JsonSerializer.Deserialize<MediaSnapshotMessage>(message, SerializerOptions);
-                if (snapshotMessage is not null)
-                {
-                    UpdateSnapshot(snapshot => snapshot with { LastMedia = snapshotMessage, LastError = null });
-                }
-
-                break;
-            }
-            case BridgeMessageTypes.Heartbeat:
-            {
-                await SendAsync(session.Socket, new HeartbeatMessage("desktop", DateTimeOffset.UtcNow), cancellationToken);
-                break;
-            }
-        }
-    }
-
-    private async Task BroadcastHeartbeatLoopAsync(CancellationToken cancellationToken)
-    {
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(10));
-        while (await timer.WaitForNextTickAsync(cancellationToken))
-        {
-            await BroadcastAsync(new HeartbeatMessage("desktop", DateTimeOffset.UtcNow), cancellationToken);
-        }
-    }
-
-    private Task BroadcastAsync(BridgeMessage message, CancellationToken cancellationToken = default)
-    {
-        var tasks = _sessions.Values.Select(session => SendAsync(session.Socket, message, cancellationToken));
-        return Task.WhenAll(tasks);
-    }
-
-    private static async Task SendAsync(WebSocket socket, BridgeMessage message, CancellationToken cancellationToken)
-    {
-        if (socket.State != WebSocketState.Open)
-        {
-            return;
-        }
-
-        var payload = JsonSerializer.Serialize(message, SerializerOptions);
-        var bytes = Encoding.UTF8.GetBytes(payload);
-        await socket.SendAsync(bytes, WebSocketMessageType.Text, true, cancellationToken);
     }
 
     private void UpdateSnapshot(Func<BridgeTelemetrySnapshot, BridgeTelemetrySnapshot> update)
@@ -387,20 +209,58 @@ public sealed class LocalBridgeHost : IAsyncDisposable
         TelemetryChanged?.Invoke(this, snapshot);
     }
 
-    private sealed class ConnectedSession
+    private async Task ApplyCombatModeTransitionAsync(CombatModeTransition transition)
     {
-        public ConnectedSession(Guid id, WebSocket socket)
+        try
         {
-            Id = id;
-            Socket = socket;
+            var mediaSnapshot = transition.IsActive
+                ? await _mediaController.ApplyAsync(_settings.ControlMode)
+                : await _mediaController.RestoreAsync(_settings.ControlMode);
+
+            UpdateSnapshot(snapshot => snapshot with
+            {
+                LastMedia = mediaSnapshot,
+                LastError = null
+            });
         }
+        catch (Exception exception)
+        {
+            UpdateSnapshot(snapshot => snapshot with { LastError = exception.Message });
+        }
+    }
 
-        public Guid Id { get; }
+    private async Task SwitchControlModeAsync(MediaControlMode previousMode, MediaControlMode nextMode)
+    {
+        try
+        {
+            await _mediaController.RestoreAsync(previousMode);
+            var mediaSnapshot = await _mediaController.ApplyAsync(nextMode);
+            UpdateSnapshot(snapshot => snapshot with
+            {
+                LastMedia = mediaSnapshot,
+                LastError = null
+            });
+        }
+        catch (Exception exception)
+        {
+            UpdateSnapshot(snapshot => snapshot with { LastError = exception.Message });
+        }
+    }
 
-        public WebSocket Socket { get; }
-
-        public string? Browser { get; set; }
-
-        public string? Version { get; set; }
+    private async Task RefreshMediaSnapshotAsync()
+    {
+        try
+        {
+            var mediaSnapshot = await _mediaController.RefreshAsync(_settings.ControlMode);
+            UpdateSnapshot(snapshot => snapshot with
+            {
+                LastMedia = mediaSnapshot,
+                LastError = snapshot.LastError
+            });
+        }
+        catch (Exception exception)
+        {
+            UpdateSnapshot(snapshot => snapshot with { LastError = exception.Message });
+        }
     }
 }

@@ -10,6 +10,8 @@ public sealed record AppSettings
 
     public string AuthToken { get; init; } = AuthTokenGenerator.Create();
 
+    public MediaControlMode ControlMode { get; init; } = MediaControlMode.StreamMute;
+
     public static AppSettings CreateDefault()
     {
         return new AppSettings();

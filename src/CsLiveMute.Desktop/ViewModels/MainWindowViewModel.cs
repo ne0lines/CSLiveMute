@@ -1,7 +1,7 @@
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
-using CsLiveMute.Core.Protocol;
+using CsLiveMute.Core.Models;
 using CsLiveMute.Desktop.Infrastructure;
 using CsLiveMute.Desktop.Models;
 using CsLiveMute.Desktop.Services;
@@ -28,16 +28,19 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
     private string _heroSubtitle = "Waiting for CS2 events";
     private string _gameStatusPrimary = "Waiting for CS2 GSI";
     private string _gameStatusSecondary = "No authenticated payload received yet";
-    private string _browserStatusPrimary = "Waiting for Chromium extension";
-    private string _browserStatusSecondary = "Load the unpacked extension to sync tabs";
+    private string _modeStatusPrimary = "Stream mode selected";
+    private string _modeStatusSecondary = "Mute browser audio during live rounds.";
     private string _mediaStatusPrimary = "No supported media detected yet";
-    private string _mediaStatusSecondary = "YouTube, Twitch and Kick will report here";
+    private string _mediaStatusSecondary = "Start a browser video or stream to let the app control it.";
     private string _maskedAuthToken = "••••••••";
     private string _gsiConfigSnippet = string.Empty;
     private string _footerPrimary = "Local bridge is ready";
-    private string _footerSecondary = "POST CS2 GSI to http://127.0.0.1:3000/gsi and connect the extension to ws://127.0.0.1:3000/bridge";
+    private string _footerSecondary = "POST CS2 GSI to http://127.0.0.1:3000/gsi and choose Stream or Video before you play.";
     private string _roundStateBadge = "ROUND · IDLE";
     private int _port = 3000;
+    private bool _suppressModeUpdate;
+    private bool _isStreamModeSelected = true;
+    private bool _isVideoModeSelected;
 
     public MainWindowViewModel(AppRuntime runtime)
     {
@@ -82,7 +85,7 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         private set => SetProperty(ref _gameStatusBrush, value);
     }
 
-    public Brush BrowserStatusBrush
+    public Brush ModeStatusBrush
     {
         get => _browserStatusBrush;
         private set => SetProperty(ref _browserStatusBrush, value);
@@ -118,16 +121,16 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         private set => SetProperty(ref _gameStatusSecondary, value);
     }
 
-    public string BrowserStatusPrimary
+    public string ModeStatusPrimary
     {
-        get => _browserStatusPrimary;
-        private set => SetProperty(ref _browserStatusPrimary, value);
+        get => _modeStatusPrimary;
+        private set => SetProperty(ref _modeStatusPrimary, value);
     }
 
-    public string BrowserStatusSecondary
+    public string ModeStatusSecondary
     {
-        get => _browserStatusSecondary;
-        private set => SetProperty(ref _browserStatusSecondary, value);
+        get => _modeStatusSecondary;
+        private set => SetProperty(ref _modeStatusSecondary, value);
     }
 
     public string MediaStatusPrimary
@@ -178,6 +181,40 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         private set => SetProperty(ref _port, value);
     }
 
+    public bool IsStreamModeSelected
+    {
+        get => _isStreamModeSelected;
+        set
+        {
+            if (!SetProperty(ref _isStreamModeSelected, value) || _suppressModeUpdate || !value)
+            {
+                return;
+            }
+
+            _suppressModeUpdate = true;
+            IsVideoModeSelected = false;
+            _suppressModeUpdate = false;
+            _ = _runtime.SetControlModeAsync(MediaControlMode.StreamMute);
+        }
+    }
+
+    public bool IsVideoModeSelected
+    {
+        get => _isVideoModeSelected;
+        set
+        {
+            if (!SetProperty(ref _isVideoModeSelected, value) || _suppressModeUpdate || !value)
+            {
+                return;
+            }
+
+            _suppressModeUpdate = true;
+            IsStreamModeSelected = false;
+            _suppressModeUpdate = false;
+            _ = _runtime.SetControlModeAsync(MediaControlMode.VideoPause);
+        }
+    }
+
     public void Dispose()
     {
         _runtime.SnapshotChanged -= OnSnapshotChanged;
@@ -194,6 +231,10 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         _suppressToggleUpdate = true;
         IsServiceEnabled = snapshot.Settings.Enabled;
         _suppressToggleUpdate = false;
+        _suppressModeUpdate = true;
+        IsStreamModeSelected = snapshot.Settings.ControlMode == MediaControlMode.StreamMute;
+        IsVideoModeSelected = snapshot.Settings.ControlMode == MediaControlMode.VideoPause;
+        _suppressModeUpdate = false;
 
         Port = snapshot.Settings.Port;
         MaskedAuthToken = MaskToken(snapshot.Settings.AuthToken);
@@ -209,7 +250,9 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
         else if (snapshot.CombatModeActive)
         {
             HeroTitle = "Round Live";
-            HeroSubtitle = "Streams muted and VOD playback paused";
+            HeroSubtitle = snapshot.Settings.ControlMode == MediaControlMode.StreamMute
+                ? "Current browser audio is muted for the live round"
+                : "Current browser media is paused for the live round";
             HeroDotBrush = BrushIndigo;
         }
         else if (snapshot.GsiConnected)
@@ -235,49 +278,51 @@ public sealed class MainWindowViewModel : ObservableObject, IDisposable
                 : "No authenticated payload received yet";
         GameStatusBrush = snapshot.GsiConnected ? BrushGreen : BrushAmber;
 
-        BrowserStatusPrimary = snapshot.ExtensionConnected
-            ? $"{snapshot.Browser ?? "Chromium"} bridge connected"
-            : "Waiting for Chromium extension";
-        BrowserStatusSecondary = snapshot.ExtensionConnected
-            ? $"{snapshot.ConnectedTabs} active tabs across {snapshot.SupportedTabs} supported tabs"
-            : "Load the unpacked extension in Chrome, Edge or Brave";
-        BrowserStatusBrush = snapshot.ExtensionConnected ? BrushGreen : BrushAmber;
+        ModeStatusPrimary = $"{snapshot.Settings.ControlMode.ToDisplayName()} mode selected";
+        ModeStatusSecondary = snapshot.Settings.ControlMode == MediaControlMode.StreamMute
+            ? "Use this for Twitch, Kick or any live stream."
+            : "Use this for YouTube VOD or other normal videos.";
+        ModeStatusBrush = snapshot.Settings.Enabled ? BrushGreen : BrushSlate;
 
         var lastMedia = snapshot.LastMedia;
-        if (lastMedia is null)
+        if (lastMedia is null || !lastMedia.SessionDetected)
         {
-            MediaStatusPrimary = "No supported media detected yet";
-            MediaStatusSecondary = "YouTube, Twitch and Kick snapshots will appear here";
+            MediaStatusPrimary = "No supported browser media detected";
+            MediaStatusSecondary = lastMedia?.Detail ?? "Start Chrome, Edge, Brave or Firefox media to let the app control it.";
             MediaStatusBrush = BrushSlate;
         }
         else
         {
             MediaStatusPrimary = FormatMediaPrimary(lastMedia);
-            MediaStatusSecondary = lastMedia.Title ?? "No title reported";
-            MediaStatusBrush = lastMedia.IsPlaying ? BrushGreen : BrushInk;
+            MediaStatusSecondary = lastMedia.Detail ?? lastMedia.Title ?? "No title reported";
+            MediaStatusBrush = lastMedia.ChangeApplied ? BrushGreen : lastMedia.IsPlaying ? BrushInk : BrushSlate;
         }
 
         FooterPrimary = snapshot.CombatModeActive
             ? "Combat mode is active"
-            : snapshot.ExtensionConnected
-                ? "Bridge is synced with the browser"
-                : "Local bridge is ready";
+            : "Local control is ready";
         FooterSecondary = snapshot.CombatModeActive
-            ? "Only media that the extension changed will be restored after the round ends."
-            : snapshot.ExtensionConnected
-                ? "The extension watches supported tabs and reports live/VOD state back to the desktop app."
-                : "POST CS2 GSI to http://127.0.0.1:3000/gsi and connect the extension to ws://127.0.0.1:3000/bridge";
+            ? snapshot.Settings.ControlMode == MediaControlMode.StreamMute
+                ? "The app will restore only the browser audio sessions it muted itself."
+                : "The app will only resume media if it paused it itself."
+            : "POST CS2 GSI to http://127.0.0.1:3000/gsi and choose Stream or Video before you play.";
     }
 
-    private static string FormatMediaPrimary(MediaSnapshotMessage snapshot)
+    private static string FormatMediaPrimary(MediaAutomationSnapshot snapshot)
     {
-        var platform = snapshot.Platform ?? "Browser media";
-        if (snapshot.IsLive)
+        var platform = snapshot.SourceApp ?? "Browser media";
+        return snapshot.Action switch
         {
-            return $"{platform} live stream ({snapshot.Action ?? "mute"})";
-        }
-
-        return $"{platform} video ({snapshot.Action ?? "pause"})";
+            "muted" => $"{platform} audio muted",
+            "already-muted" => $"{platform} audio already muted",
+            "unmuted" => $"{platform} audio restored",
+            "paused" => $"{platform} playback paused",
+            "already-paused" => $"{platform} playback already paused",
+            "resumed" => $"{platform} playback resumed",
+            "already-playing" => $"{platform} playback already restored",
+            "ready" => $"{platform} session ready",
+            _ => $"{platform} session detected"
+        };
     }
 
     private static string FormatPhase(string? phase)

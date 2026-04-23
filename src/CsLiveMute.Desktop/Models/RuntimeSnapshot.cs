@@ -1,5 +1,4 @@
 using CsLiveMute.Core.Models;
-using CsLiveMute.Core.Protocol;
 
 namespace CsLiveMute.Desktop.Models;
 
@@ -11,10 +10,5 @@ public sealed record RuntimeSnapshot(
     DateTimeOffset? LastGsiReceivedAt,
     string? LastRoundPhase,
     string? GsiMessage,
-    bool ExtensionConnected,
-    string? Browser,
-    string? ExtensionVersion,
-    int ConnectedTabs,
-    int SupportedTabs,
-    MediaSnapshotMessage? LastMedia,
+    MediaAutomationSnapshot? LastMedia,
     string? LastError);

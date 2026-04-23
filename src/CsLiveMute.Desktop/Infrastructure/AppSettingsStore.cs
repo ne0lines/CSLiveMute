@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using CsLiveMute.Core.Models;
 
 namespace CsLiveMute.Desktop.Infrastructure;
@@ -10,6 +11,11 @@ public sealed class AppSettingsStore
     {
         WriteIndented = true
     };
+
+    static AppSettingsStore()
+    {
+        SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    }
 
     private readonly string _settingsPath;
 

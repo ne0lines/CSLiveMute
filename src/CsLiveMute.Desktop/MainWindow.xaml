@@ -119,6 +119,36 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <Style x:Key="ModeChipStyle" TargetType="RadioButton">
+            <Setter Property="Margin" Value="0,0,10,0" />
+            <Setter Property="Foreground" Value="#24304B" />
+            <Setter Property="Background" Value="#EEF2FF" />
+            <Setter Property="BorderBrush" Value="#D5DDF9" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border Padding="14,9"
+                                CornerRadius="12"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter Property="Background" Value="#4C55E8" />
+                                <Setter Property="BorderBrush" Value="#4C55E8" />
+                                <Setter Property="Foreground" Value="White" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Grid>
@@ -270,20 +300,31 @@
                                                    FontSize="15"
                                                    FontWeight="Bold"
                                                    Foreground="#22304A"
-                                                   Text="WB" />
+                                                   Text="UM" />
                                     </Border>
                                     <StackPanel Grid.Column="1" Margin="14,0,0,0">
                                         <TextBlock FontSize="15"
                                                    FontWeight="SemiBold"
                                                    Foreground="#121D30"
-                                                   Text="Browser Bridge" />
+                                                   Text="User Mode" />
                                         <TextBlock Margin="0,2,0,0"
                                                    FontSize="14"
-                                                   Foreground="{Binding BrowserStatusBrush}"
-                                                   Text="{Binding BrowserStatusPrimary}" />
+                                                   Foreground="{Binding ModeStatusBrush}"
+                                                   Text="{Binding ModeStatusPrimary}" />
                                         <TextBlock FontSize="12"
                                                    Foreground="#5D6777"
-                                                   Text="{Binding BrowserStatusSecondary}" />
+                                                   Text="{Binding ModeStatusSecondary}" />
+                                        <StackPanel Margin="0,14,0,0"
+                                                    Orientation="Horizontal">
+                                            <RadioButton GroupName="Mode"
+                                                         Content="Stream"
+                                                         IsChecked="{Binding IsStreamModeSelected}"
+                                                         Style="{StaticResource ModeChipStyle}" />
+                                            <RadioButton GroupName="Mode"
+                                                         Content="Video"
+                                                         IsChecked="{Binding IsVideoModeSelected}"
+                                                         Style="{StaticResource ModeChipStyle}" />
+                                        </StackPanel>
                                     </StackPanel>
                                 </Grid>
                             </Border>
@@ -398,7 +439,7 @@
                                              BorderBrush="#D5DDF9"
                                              BorderThickness="1"
                                              Background="#F7F9FF"
-                                             Text="{Binding GsiConfigSnippet}" />
+                                             Text="{Binding GsiConfigSnippet, Mode=OneWay}" />
                                 </Grid>
                             </Border>
                         </StackPanel>
@@ -423,7 +464,8 @@
                                     <TextBlock Margin="0,2,0,0"
                                                FontSize="12"
                                                Foreground="#E6EAFF"
-                                               Text="{Binding FooterSecondary}" />
+                                               Text="{Binding FooterSecondary}"
+                                               TextWrapping="Wrap" />
                                 </StackPanel>
                                 <TextBlock Grid.Column="1"
                                            VerticalAlignment="Center"

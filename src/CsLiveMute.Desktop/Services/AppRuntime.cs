@@ -44,6 +44,19 @@ public sealed class AppRuntime : IAsyncDisposable
         PublishSnapshot();
     }
 
+    public async Task SetControlModeAsync(MediaControlMode mode)
+    {
+        if (_settings.ControlMode == mode)
+        {
+            return;
+        }
+
+        _settings = _settings with { ControlMode = mode };
+        await _settingsStore.SaveAsync(_settings);
+        _host?.UpdateSettings(_settings);
+        PublishSnapshot();
+    }
+
     public async Task RegenerateTokenAsync()
     {
         _settings = _settings with { AuthToken = AuthTokenGenerator.Create() };
@@ -83,11 +96,6 @@ public sealed class AppRuntime : IAsyncDisposable
             _bridgeSnapshot.LastGsiReceivedAt,
             _bridgeSnapshot.LastRoundPhase,
             _bridgeSnapshot.GsiMessage,
-            _bridgeSnapshot.ExtensionConnected,
-            _bridgeSnapshot.Browser,
-            _bridgeSnapshot.ExtensionVersion,
-            _bridgeSnapshot.ConnectedTabs,
-            _bridgeSnapshot.SupportedTabs,
             _bridgeSnapshot.LastMedia,
             _bridgeSnapshot.LastError);
     }
