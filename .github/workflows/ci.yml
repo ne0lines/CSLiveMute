@@ -1,0 +1,65 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore
+        run: dotnet restore CsLiveMute.sln
+
+      - name: Build
+        run: dotnet build CsLiveMute.sln --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test CsLiveMute.sln --configuration Release --no-build
+
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build-test
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore
+        run: dotnet restore CsLiveMute.sln
+
+      - name: Package release
+        shell: pwsh
+        run: .\scripts\package-release.ps1 -Version "0.1.${{ github.run_number }}"
+
+      - name: Upload packaged artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cs-live-mute-win-x64
+          path: artifacts/release/cs-live-mute-0.1.${{ github.run_number }}-win-x64.zip
+
+      - name: Publish GitHub release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: artifacts/release/cs-live-mute-0.1.${{ github.run_number }}-win-x64.zip
+          tag: v0.1.${{ github.run_number }}
+          name: v0.1.${{ github.run_number }}
+          generateReleaseNotes: true

@@ -1,0 +1,442 @@
+<Window x:Class="CsLiveMute.Desktop.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="CS Live Mute"
+        Width="620"
+        Height="860"
+        MinWidth="620"
+        MinHeight="860"
+        WindowStartupLocation="CenterScreen"
+        Background="#10131B"
+        WindowStyle="None"
+        ResizeMode="NoResize">
+    <Window.Resources>
+        <Style x:Key="CaptionButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="36" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Margin" Value="6,0,0,0" />
+            <Setter Property="Foreground" Value="#E8ECFF" />
+            <Setter Property="Background" Value="#14FFFFFF" />
+            <Setter Property="BorderBrush" Value="#18FFFFFF" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border CornerRadius="8"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#28FFFFFF" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#35FFFFFF" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="InfoCardStyle" TargetType="Border">
+            <Setter Property="Background" Value="#70FFFFFF" />
+            <Setter Property="BorderBrush" Value="#18FFFFFF" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="18" />
+            <Setter Property="Padding" Value="16" />
+            <Setter Property="Margin" Value="0,0,0,14" />
+        </Style>
+
+        <Style x:Key="SmallActionButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="Foreground" Value="#24304B" />
+            <Setter Property="Background" Value="#E8EDFF" />
+            <Setter Property="BorderBrush" Value="#D6DDF8" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border CornerRadius="10"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter Margin="{TemplateBinding Padding}"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#DCE5FF" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#CBD7FF" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ToggleSwitchStyle" TargetType="CheckBox">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Grid Width="72" Height="38">
+                            <Border x:Name="SwitchTrack"
+                                    CornerRadius="19"
+                                    Background="#CDD8F5"
+                                    BorderBrush="#DDE5FF"
+                                    BorderThickness="1" />
+                            <Border x:Name="SwitchThumb"
+                                    Width="30"
+                                    Height="30"
+                                    Margin="4,0,0,0"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Center"
+                                    Background="White"
+                                    CornerRadius="15" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="SwitchTrack" Property="Background" Value="#4C55E8" />
+                                <Setter TargetName="SwitchTrack" Property="BorderBrush" Value="#5C66F2" />
+                                <Setter TargetName="SwitchThumb" Property="HorizontalAlignment" Value="Right" />
+                                <Setter TargetName="SwitchThumb" Property="Margin" Value="0,0,4,0" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#1A1D29" Offset="0" />
+                <GradientStop Color="#495581" Offset="0.52" />
+                <GradientStop Color="#A5556B" Offset="1" />
+            </LinearGradientBrush>
+        </Grid.Background>
+
+        <Border Margin="26"
+                CornerRadius="30"
+                BorderBrush="#22FFFFFF"
+                BorderThickness="1">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="42"
+                                  ShadowDepth="0"
+                                  Color="#2A000000"
+                                  Opacity="0.55" />
+            </Border.Effect>
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="#EEF3FF" Offset="0" />
+                    <GradientStop Color="#E6EBFA" Offset="1" />
+                </LinearGradientBrush>
+            </Border.Background>
+
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="52" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0"
+                      Margin="18,12,18,0"
+                      MouseLeftButtonDown="TitleBar_OnMouseLeftButtonDown">
+                    <TextBlock HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               FontSize="14"
+                               FontWeight="SemiBold"
+                               Foreground="#152238"
+                               Text="CS Live Mute" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Style="{StaticResource CaptionButtonStyle}"
+                                Click="MinimizeButton_OnClick"
+                                Content="-" />
+                        <Button Style="{StaticResource CaptionButtonStyle}"
+                                Click="CloseButton_OnClick"
+                                Content="×" />
+                    </StackPanel>
+                </Grid>
+
+                <ScrollViewer Grid.Row="1"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
+                    <Grid Margin="32,10,32,32">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0" HorizontalAlignment="Center" Margin="0,12,0,24">
+                            <Border Width="122"
+                                    Height="122"
+                                    Background="#D9E3FF"
+                                    BorderBrush="#CAD6FF"
+                                    BorderThickness="1"
+                                    CornerRadius="61">
+                                <Grid>
+                                    <TextBlock HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"
+                                               FontSize="34"
+                                               FontWeight="Bold"
+                                               Foreground="#4C55E8"
+                                               Text="CS" />
+                                </Grid>
+                            </Border>
+                            <TextBlock Margin="0,22,0,6"
+                                       HorizontalAlignment="Center"
+                                       FontSize="20"
+                                       FontWeight="SemiBold"
+                                       Foreground="#101B2D"
+                                       Text="{Binding HeroTitle}" />
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <Ellipse Width="10"
+                                         Height="10"
+                                         Margin="0,0,8,0"
+                                         Fill="{Binding HeroDotBrush}" />
+                                <TextBlock VerticalAlignment="Center"
+                                           FontSize="14"
+                                           Foreground="#586274"
+                                           Text="{Binding HeroSubtitle}" />
+                            </StackPanel>
+                            <CheckBox Margin="0,28,0,0"
+                                      HorizontalAlignment="Center"
+                                      IsChecked="{Binding IsServiceEnabled}"
+                                      Style="{StaticResource ToggleSwitchStyle}" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="1">
+                            <Border Style="{StaticResource InfoCardStyle}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="52" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Width="42"
+                                            Height="42"
+                                            Background="#DDE6FF"
+                                            CornerRadius="10">
+                                        <TextBlock HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"
+                                                   FontSize="16"
+                                                   FontWeight="Bold"
+                                                   Foreground="#22304A"
+                                                   Text="CS" />
+                                    </Border>
+                                    <StackPanel Grid.Column="1" Margin="14,0,0,0">
+                                        <TextBlock FontSize="15"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#121D30"
+                                                   Text="Game Status" />
+                                        <TextBlock Margin="0,2,0,0"
+                                                   FontSize="14"
+                                                   Foreground="{Binding GameStatusBrush}"
+                                                   Text="{Binding GameStatusPrimary}" />
+                                        <TextBlock FontSize="12"
+                                                   Foreground="#5D6777"
+                                                   Text="{Binding GameStatusSecondary}" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                            <Border Style="{StaticResource InfoCardStyle}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="52" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Width="42"
+                                            Height="42"
+                                            Background="#DDE6FF"
+                                            CornerRadius="10">
+                                        <TextBlock HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"
+                                                   FontSize="15"
+                                                   FontWeight="Bold"
+                                                   Foreground="#22304A"
+                                                   Text="WB" />
+                                    </Border>
+                                    <StackPanel Grid.Column="1" Margin="14,0,0,0">
+                                        <TextBlock FontSize="15"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#121D30"
+                                                   Text="Browser Bridge" />
+                                        <TextBlock Margin="0,2,0,0"
+                                                   FontSize="14"
+                                                   Foreground="{Binding BrowserStatusBrush}"
+                                                   Text="{Binding BrowserStatusPrimary}" />
+                                        <TextBlock FontSize="12"
+                                                   Foreground="#5D6777"
+                                                   Text="{Binding BrowserStatusSecondary}" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                            <Border Style="{StaticResource InfoCardStyle}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="52" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Width="42"
+                                            Height="42"
+                                            Background="#DDE6FF"
+                                            CornerRadius="10">
+                                        <TextBlock HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"
+                                                   FontSize="14"
+                                                   FontWeight="Bold"
+                                                   Foreground="#22304A"
+                                                   Text="AV" />
+                                    </Border>
+                                    <StackPanel Grid.Column="1" Margin="14,0,0,0">
+                                        <TextBlock FontSize="15"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#121D30"
+                                                   Text="Media Detected" />
+                                        <TextBlock Margin="0,2,0,0"
+                                                   FontSize="14"
+                                                   Foreground="{Binding MediaStatusBrush}"
+                                                   Text="{Binding MediaStatusPrimary}" />
+                                        <TextBlock FontSize="12"
+                                                   Foreground="#5D6777"
+                                                   Text="{Binding MediaStatusSecondary}" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="2" Margin="0,8,0,0">
+                            <TextBlock Margin="4,0,0,10"
+                                       FontSize="12"
+                                       FontWeight="Bold"
+                                       Foreground="#56606F"
+                                       Text="GSI CONFIGURATION" />
+                            <Border Style="{StaticResource InfoCardStyle}" Margin="0,0,0,0">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="1" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <TextBlock FontSize="14"
+                                               Foreground="#5D6777"
+                                               Text="Port" />
+                                    <TextBlock Grid.Column="1"
+                                               FontSize="14"
+                                               FontWeight="SemiBold"
+                                               Foreground="#121D30"
+                                               Text="{Binding Port}" />
+
+                                    <Border Grid.Row="1"
+                                            Grid.ColumnSpan="2"
+                                            Margin="0,12"
+                                            Background="#110E1830" />
+
+                                    <TextBlock Grid.Row="2"
+                                               FontSize="14"
+                                               Foreground="#5D6777"
+                                               Text="Auth Token" />
+                                    <StackPanel Grid.Row="2"
+                                                Grid.Column="1"
+                                                Orientation="Horizontal"
+                                                VerticalAlignment="Center">
+                                        <TextBlock VerticalAlignment="Center"
+                                                   FontFamily="Cascadia Mono"
+                                                   FontSize="13"
+                                                   Foreground="#121D30"
+                                                   Text="{Binding MaskedAuthToken}" />
+                                        <Button Margin="10,0,0,0"
+                                                Command="{Binding CopyTokenCommand}"
+                                                Style="{StaticResource SmallActionButtonStyle}"
+                                                Content="Copy" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Row="3"
+                                                Grid.ColumnSpan="2"
+                                                Margin="0,16,0,10"
+                                                Orientation="Horizontal">
+                                        <Button Command="{Binding CopyConfigCommand}"
+                                                Style="{StaticResource SmallActionButtonStyle}"
+                                                Content="Copy CS2 Config" />
+                                        <Button Command="{Binding RegenerateTokenCommand}"
+                                                Style="{StaticResource SmallActionButtonStyle}"
+                                                Content="New Token" />
+                                    </StackPanel>
+
+                                    <TextBox Grid.Row="4"
+                                             Grid.ColumnSpan="2"
+                                             MinHeight="180"
+                                             Padding="12"
+                                             FontFamily="Cascadia Mono"
+                                             FontSize="12"
+                                             TextWrapping="Wrap"
+                                             IsReadOnly="True"
+                                             BorderBrush="#D5DDF9"
+                                             BorderThickness="1"
+                                             Background="#F7F9FF"
+                                             Text="{Binding GsiConfigSnippet}" />
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+
+                        <Border Grid.Row="3"
+                                Margin="0,16,0,0"
+                                Padding="14"
+                                CornerRadius="16"
+                                Background="#3F4BDD"
+                                BorderBrush="#6A74F2"
+                                BorderThickness="1">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock FontSize="14"
+                                               FontWeight="SemiBold"
+                                               Foreground="White"
+                                               Text="{Binding FooterPrimary}" />
+                                    <TextBlock Margin="0,2,0,0"
+                                               FontSize="12"
+                                               Foreground="#E6EAFF"
+                                               Text="{Binding FooterSecondary}" />
+                                </StackPanel>
+                                <TextBlock Grid.Column="1"
+                                           VerticalAlignment="Center"
+                                           FontFamily="Cascadia Mono"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           Foreground="#E6EAFF"
+                                           Text="{Binding RoundStateBadge}" />
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

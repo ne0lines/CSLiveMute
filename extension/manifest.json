@@ -1,0 +1,43 @@
+{
+  "manifest_version": 3,
+  "name": "CS Live Mute Bridge",
+  "description": "Mutes live streams and pauses VOD playback while a CS2 round is live.",
+  "version": "0.1.0",
+  "permissions": [
+    "tabs"
+  ],
+  "host_permissions": [
+    "*://*.youtube.com/*",
+    "*://youtube.com/*",
+    "*://*.twitch.tv/*",
+    "*://twitch.tv/*",
+    "*://*.kick.com/*",
+    "*://kick.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "CS Live Mute"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.youtube.com/*",
+        "*://youtube.com/*",
+        "*://*.twitch.tv/*",
+        "*://twitch.tv/*",
+        "*://*.kick.com/*",
+        "*://kick.com/*"
+      ],
+      "js": [
+        "content/shared.js",
+        "content/youtube.js",
+        "content/twitch.js",
+        "content/kick.js",
+        "content/content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
